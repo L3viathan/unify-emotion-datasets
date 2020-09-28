@@ -2,6 +2,7 @@
 import os
 import sys
 import json
+import hashlib
 import shutil
 import subprocess
 import requests
@@ -37,11 +38,21 @@ def download(_, target, droot, __):
         },
     )
     chars = "-\\|/"
+    sha256 = hashlib.sha256()
     with open(f"{droot}/{fname}", "wb") as f:
         for i, chunk in enumerate(r.iter_content(chunk_size=1024)):
             arrow(f"Downloading... {chars[i%len(chars)]}", end="\r")
             if chunk:
                 f.write(chunk)
+                sha256.update(chunk)
+
+    if "sha256" in target:
+        # verify download
+        if target["sha256"] != sha256.hexdigest():
+            # rollback; delete
+            arrow("File had unexpected content. Deleting artifacts...")
+            shutil.rmtree(droot)
+            return
 
     if fname.endswith(".zip") or fname.endswith(".tar.gz"):
         arrow(f"Unpacking {fname}...")
